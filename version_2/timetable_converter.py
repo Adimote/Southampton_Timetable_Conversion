@@ -12,8 +12,8 @@ print(url)
 MONDAY_OF_FIRST_WEEK = "2015/09/28"  # YYYY/MM/DD
 # convert it to datetime
 monday_of_first_week = datetime.strptime(MONDAY_OF_FIRST_WEEK, "%Y/%m/%d")
-
 print monday_of_first_week
+
 
 def get_weeks_from_string(week_string):
 
@@ -60,6 +60,7 @@ def scrape_page(page_string):
         print lecture
     # print (etree.tostring(table, pretty_print=True))
 
+
 def get_date_from_day_and_week(string, weeks):
     global monday_of_first_week
     # Day -> Int Dictionary
@@ -84,8 +85,7 @@ def get_date_from_day_and_week(string, weeks):
     # TODO: check the above works
 
     # TODO: implement get_date_from_day_and_week into the scrape_page script
-    # TODO: maybe make monday_of_first_week non-globa
-l
+    # TODO: maybe make monday_of_first_week non-global
     # TODO: implement the below with the icalendar module
 def export_as_ical(lectures):
     pass
