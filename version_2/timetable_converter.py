@@ -1,22 +1,47 @@
 #!/usr/bin/env python
 from lxml import etree
-import icalendar
 import unicodedata
+import uuid
+import time
+import os
+
 from datetime import datetime, timedelta
 
-url = "https://timetable.soton.ac.uk/Home/Semester/"
-print("Please input the following into your browser," +
-      "then save te output to the same directory as this python script")
-print(url)
-
 MONDAY_OF_FIRST_WEEK = "2015/09/28"  # YYYY/MM/DD
+
+
+VERSION = 0.2
+
 # convert it to datetime
-monday_of_first_week = datetime.strptime(MONDAY_OF_FIRST_WEEK, "%Y/%m/%d")
-print monday_of_first_week
+MONDAY_OF_FIRST_WEEK_DATETIME = datetime.strptime(
+        MONDAY_OF_FIRST_WEEK,
+        "%Y/%m/%d"
+    )
+
+# Day -> Int Dictionary
+DAY_OFFSETS = {
+    "Mon": 0,
+    "Tue": 1,
+    "Wed": 2,
+    "Thu": 3,
+    "Fri": 4,
+    "Sat": 5,
+    "Sun": 6,
+}
+
+# Day -> ISO Dictionary
+DAY_TO_ISO = {
+    "Mon": "MO",
+    "Tue": "TU",
+    "Wed": "WE",
+    "Thu": "TH",
+    "Fri": "FR",
+    "Sat": "SA",
+    "Sun": "SU",
+}
 
 
-def get_weeks_from_string(week_string):
-
+def get_term_weeks_from_string(week_string):
     weeks = []
     # Last column is the weeks they are on.
     # Example: "1-11, 15"
@@ -45,55 +70,214 @@ def scrape_page(page_string):
     lectures = []
     for row in table:
         lecture = {}
-        lecture["code"] = row[0][0].text
-        lecture["name"] = row[1].text
-        lecture["type"] = unicodedata.normalize('NFKD', row[2].text).encode(
-            'ascii',
-            'ignore')
-        lecture["day"] = row[3].text
-        lecture["start_time"] = row[4].text
-        lecture["end_time"] = row[5].text
-        lecture["weeks"] = row[6].text
+        lecture["code"] = row[0][0].text.strip()
+        lecture["name"] = row[1].text.strip()
+        # for some reason the lecture string has a unicode character on the end
+        # We're clearing it here.
+        lecture["type"] = unicodedata.normalize(
+                'NFKD',
+                row[2].text.strip()
+            ).encode(
+                'ascii',
+                'ignore'
+            )
+        term_weeks = get_term_weeks_from_string(row[6].text.strip())
+
+        # if there aren't any weeks, stop.
+        if not term_weeks:
+            raise Exception("Timetable entry has 0 valid weeks!")
+
+        # get the weeks in ISO week form
+        weeks = get_ISO_weeks(
+                term_weeks,
+                MONDAY_OF_FIRST_WEEK_DATETIME
+            )
+        # get the weekday name
+        day_string = row[3].text.strip()
+        # get the start and end times in HH:MM and convert them to datetime
+        start_time_hhmm = row[4].text.strip()
+        end_time_hhmm = row[5].text.strip()
+
+        # Get a tuple of the start and end datetimes of the first lecture.
+        start_and_end_datetime = get_datetime_of_lecture(
+            start_time_hhmm,
+            end_time_hhmm,
+            day_string,
+            term_weeks[0]
+            )
+        lecture["day"] = day_string
+        lecture["start_time"] = start_and_end_datetime[0]
+        lecture["end_time"] = start_and_end_datetime[1]
+        lecture["weeks"] = weeks
+        lecture["location"] = row[7].text.strip()
+
         lectures.append(lecture)
-        print lecture["weeks"]
-        print get_weeks_from_string(lecture["weeks"])
-        print lecture
+
     # print (etree.tostring(table, pretty_print=True))
+    return lectures
 
 
-def get_date_from_day_and_week(string, weeks):
-    global monday_of_first_week
-    # Day -> Int Dictionary
-    day_offsets = {
-        "Mon": 0,
-        "Tue": 1,
-        "Wed": 2,
-        "Thu": 3,
-        "Fri": 4,
-        "Sat": 5,
-        "Sun": 6,
-    }
-    time_deltas = []
-    for week in weeks:
-        if week in day_offsets:
-            day_offset = day_offsets[week]
-        else:
-            raise "Badly formatted weekday!"
-        total_offset = week*7 + day_offset
-        time_deltas.append(timedelta(days=total_offset))
-    return [monday_of_first_week+delta for delta in time_deltas]
-    # TODO: check the above works
+def day_to_iso_day(day_string):
+    return DAY_TO_ISO[day_string]
 
-    # TODO: implement get_date_from_day_and_week into the scrape_page script
-    # TODO: maybe make monday_of_first_week non-global
-    # TODO: implement the below with the icalendar module
+
+def get_ISO_weeks(term_weeks, first_day_of_term):
+    week_offsets = [get_week_offset(x) for x in term_weeks]
+    return [
+        (first_day_of_term+x).isocalendar()[1]
+        for x in week_offsets
+    ]
+
+
+def get_day_offset(day_string):
+    if day_string in DAY_OFFSETS:
+        day_offset = DAY_OFFSETS[day_string]
+    else:
+        raise Exception("Badly formatted weekday! {}".format(day_string))
+    return timedelta(days=day_offset)
+
+
+def get_week_offset(week_number):
+    return timedelta(weeks=week_number-1)
+
+
+def get_time_offset(time):
+    t = datetime.strptime(time, "%H:%M")
+    return timedelta(hours=t.hour, minutes=t.minute, seconds=t.second)
+
+
+def get_datetime_of_lecture(
+    start_time_string,
+    end_time_string,
+    day_string,
+    first_week_number
+  ):
+    """
+    returns UTC datetime of the start and end times.
+    """
+    day_delta = get_day_offset(day_string)
+    week_delta = get_week_offset(first_week_number)
+    day_date = MONDAY_OF_FIRST_WEEK_DATETIME + week_delta + day_delta
+    start_hour_delta = get_time_offset(start_time_string)
+    end_hour_delta = get_time_offset(end_time_string)
+
+    start_time = day_date+start_hour_delta
+    end_time = day_date+end_hour_delta
+
+    return (start_time, end_time)
+
+# TODO: maybe make monday_of_first_week non-global
+# TODO(Bonus) link rooms to opendata by adding \
+#   ALTREF:http://data.southampton.ac.uk/room/<building-room>.html to the description
+
+
 def export_as_ical(lectures):
-    pass
+    calendar_string = """BEGIN:VCALENDAR
+PRODID:-//github.com.Adimote//Timetable Converter v{version}//EN
+VERSION:2.0
+CALSCALE:GREGORIAN
+X-WR-CALNAME:timetable_University_of_Southampton
+X-WR-TIMEZONE:Europe/London
+BEGIN:VTIMEZONE
+TZID:Europe/London
+X-LIC-LOCATION:Europe/London
+BEGIN:DAYLIGHT
+TZOFFSETFROM:+0000
+TZOFFSETTO:+0100
+TZNAME:BST
+DTSTART:19700329T010000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0000
+TZNAME:GMT
+DTSTART:19701025T020000
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU
+END:STANDARD
+END:VTIMEZONE""".format(version=VERSION)
+    for lecture in lectures:
+        calendar_string += """
+BEGIN:VEVENT
+DTSTART;TZID=Europe/London:{start_time}
+DTEND;TZID=Europe/London:{end_time}
+RRULE:FREQ=YEARLY;COUNT={week_count};BYWEEKNO={weeks};BYDAY={day_string}
+UID:{uid}
+DESCRIPTION:{name} ({type})
+LOCATION: {location}
+SUMMARY:{code}
+TRANSP:OPAQUE
+END:VEVENT""".format(
+        start_time=lecture["start_time"].strftime("%Y%m%dT%H%M%S"),
+        end_time=lecture["end_time"].strftime("%Y%m%dT%H%M%S"),
+        uid=uuid.uuid1(),
+        name=lecture["name"],
+        type=lecture["type"],
+        location=lecture["location"],
+        code=lecture["code"],
+        week_count=len(lecture["weeks"]),
+        weeks=",".join([str(x) for x in lecture["weeks"]]),
+        day_string=day_to_iso_day(lecture["day"])
+    )
+    calendar_string += """
+END:VCALENDAR"""
+    return calendar_string
+
 
 def main():
-    with open("My Timetable.html") as f:
-        scrape_page(f.read())
+    url = "https://timetable.soton.ac.uk/Home/Semester/"
+    print("This code is configured for the year starting: {}".format(MONDAY_OF_FIRST_WEEK))
+    time.sleep(1)
+    print("")
+    a = raw_input("...is it the right year? (yes/no) ")
+    if a.strip().lower() != "yes":
+        print("Go into the code and change the date to the FIRST monday of lectures!!")
+        return raw_input("(Press Enter to close)")
+    print("")
+    print("...good.")
+    print("")
+    time.sleep(0.2)
+    print("Now then:")
+    while True:
+        print("")
+        print("----")
+        print("")
+        print("Please load the following up in your web browser: (log in if needed)")
+        print(url)
+        raw_input("(Press Enter/Return to continue)")
+        print("")
+        print("Press ctrl/command + S and save it as 'My Timetable.html' in the same directory as this python script")
+        print("(Press Enter/Return when done)")
+        raw_input()
+        if os.path.isfile("My Timetable.html"):
+            break
+        else:
+            print("...")
+            time.sleep(0.5)
+            print("...I can't find the file!")
+            print("")
+            time.sleep(1)
+            print("Lets try again")
+            print("")
+            time.sleep(0.5)
+            print(
+                "Remember to save it in the same " +
+                "directory as this python script!"
+                )
+            time.sleep(0.5)
 
+    with open("My Timetable.html") as f:
+        lectures = scrape_page(f.read())
+        with open("lecture_timetable.ics", "w") as cal_file:
+            cal_file.write(export_as_ical(lectures).replace(r'\n', '\r\n'))
+    print("...")
+    print("")
+    print("Done!")
+    print("")
+    print("The file 'lecture_timetable.ics' has now been created in the same directory.")
+    print("To import this into google calendar you just select the file from the import option in the settings menu.")
+    print("Good Luck!")
+    raw_input("(Press Enter to close)")
 
 if __name__ == "__main__":
     main()
