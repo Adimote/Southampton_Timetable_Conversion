@@ -5,8 +5,10 @@ This is a python script that converts a University of Southampton new (as of 201
 
 this icalendar format can then be used to import into many calendars such as Google Calendar.
 
-## Installation:
+## Installation
 
-1. [Download python 2.7](https://www.python.org/downloads/) if you haven`t already 
+1. [Download python 2.7](https://www.python.org/downloads/) if you haven't already.
 
-2. run the script and follow the steps `python timetable_converter.py`
+2. Install `python-lxml` or run `pip install -r requirements.txt`.
+
+3. Run the script and follow the steps `python timetable_converter.py`.
