@@ -7,8 +7,10 @@ this icalendar format can then be used to import into many calendars such as Goo
 
 ## Installation
 
-1. [Download python 2.7](https://www.python.org/downloads/) if you haven't already.
+1. [Download Python 2 or 3](https://www.python.org/downloads/) if you haven't already.
 
-2. Install `python-lxml` or run `pip install -r requirements.txt`.
+2. Create a virtual environment to install the dependencies with `pyvenv venv` or `virtualenv venv`. Activate with `source venv/bin/activate`. (Optional)
 
-3. Run the script and follow the steps `python timetable_converter.py`.
+3. Install `python-lxml` or run `pip install -r requirements.txt`.
+
+4. Run the script and follow the steps `python timetable_converter.py`.
