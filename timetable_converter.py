@@ -7,6 +7,13 @@ import os
 
 from datetime import datetime, timedelta
 
+
+try:
+    input = raw_input  # for Python 2 compatibility
+except NameError:
+    pass
+
+
 MONDAY_OF_FIRST_WEEK = "2015/09/28"  # YYYY/MM/DD
 
 
@@ -80,7 +87,7 @@ def scrape_page(page_string):
             ).encode(
                 'ascii',
                 'ignore'
-            )
+            ).decode('UTF-8')
         term_weeks = get_term_weeks_from_string(row[6].text.strip())
 
         # if there aren't any weeks, stop.
@@ -229,10 +236,10 @@ def main():
     print("This code is configured for the year starting: {}".format(MONDAY_OF_FIRST_WEEK))
     time.sleep(1)
     print("")
-    a = raw_input("...is it the right year? (yes/no) ")
+    a = input("...is it the right year? (yes/no) ")
     if a.strip().lower() != "yes":
         print("Go into the code and change the date to the FIRST monday of lectures!!")
-        return raw_input("(Press Enter to close)")
+        return input("(Press Enter to close)")
     print("")
     print("...good.")
     print("")
@@ -244,11 +251,11 @@ def main():
         print("")
         print("Please load the following up in your web browser: (log in if needed)")
         print(url)
-        raw_input("(Press Enter/Return to continue)")
+        input("(Press Enter/Return to continue)")
         print("")
         print("Press ctrl/command + S and save it as 'My Timetable.html' in the same directory as this python script")
         print("(Press Enter/Return when done)")
-        raw_input()
+        input()
         if os.path.isfile("My Timetable.html"):
             break
         else:
@@ -277,7 +284,7 @@ def main():
     print("The file 'lecture_timetable.ics' has now been created in the same directory.")
     print("To import this into google calendar you just select the file from the import option in the settings menu.")
     print("Good Luck!")
-    raw_input("(Press Enter to close)")
+    input("(Press Enter to close)")
 
 if __name__ == "__main__":
     main()
