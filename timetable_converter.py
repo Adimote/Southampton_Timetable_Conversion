@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from lxml import etree
 import unicodedata
 import uuid
@@ -46,7 +46,6 @@ DAY_TO_ISO = {
     "Sat": "SA",
     "Sun": "SU",
 }
-
 
 def get_term_weeks_from_string(week_string):
     weeks = []
@@ -99,6 +98,8 @@ def scrape_page(page_string):
                 term_weeks,
                 MONDAY_OF_FIRST_WEEK_DATETIME
             )
+
+
         # get the weekday name
         day_string = row[3].text.strip()
         # get the start and end times in HH:MM and convert them to datetime
@@ -112,10 +113,13 @@ def scrape_page(page_string):
             day_string,
             term_weeks[0]
             )
+        recursions = [start_and_end_datetime[0] + timedelta(weeks=week-term_weeks[0]) for week in term_weeks]
         lecture["day"] = day_string
         lecture["start_time"] = start_and_end_datetime[0]
         lecture["end_time"] = start_and_end_datetime[1]
+        lecture["recursions"] = recursions
         lecture["weeks"] = weeks
+        lecture["week_times"] = weeks
         lecture["location"] = row[7].text.strip()
 
         lectures.append(lecture)
@@ -135,7 +139,6 @@ def get_ISO_weeks(term_weeks, first_day_of_term):
         for x in week_offsets
     ]
 
-
 def get_day_offset(day_string):
     if day_string in DAY_OFFSETS:
         day_offset = DAY_OFFSETS[day_string]
@@ -147,6 +150,19 @@ def get_day_offset(day_string):
 def get_week_offset(week_number):
     return timedelta(weeks=week_number-1)
 
+def get_week_spans(weeks):
+    spans = []
+    minim = weeks[0]
+    maxim = weeks[0]
+    for w in weeks:
+        if w == (maxim+1) or w == weeks[0]:
+            maxim = w
+        else:
+            spans.append((minim, maxim))
+            minim = w
+            maxim = w
+    spans.append((minim,maxim))
+    return spans
 
 def get_time_offset(time):
     t = datetime.strptime(time, "%H:%M")
@@ -167,7 +183,6 @@ def get_datetime_of_lecture(
     day_date = MONDAY_OF_FIRST_WEEK_DATETIME + week_delta + day_delta
     start_hour_delta = get_time_offset(start_time_string)
     end_hour_delta = get_time_offset(end_time_string)
-
     start_time = day_date+start_hour_delta
     end_time = day_date+end_hour_delta
 
@@ -207,19 +222,22 @@ END:VTIMEZONE""".format(version=VERSION)
         calendar_string += """
 BEGIN:VEVENT
 DTSTART;TZID=Europe/London:{start_time}
-DTEND;TZID=Europe/London:{end_time}
-RRULE:FREQ=YEARLY;COUNT={week_count};BYWEEKNO={weeks};BYDAY={day_string}
+DTEND;TZID=Europe/London:{end_time}{rdates}
 UID:{uid}
 DESCRIPTION:{name} ({type})
 LOCATION: {location}
 SUMMARY:{code}
 TRANSP:OPAQUE
-END:VEVENT""".format(
+END:VEVENT
+""".format(
         start_time=lecture["start_time"].strftime("%Y%m%dT%H%M%S"),
         end_time=lecture["end_time"].strftime("%Y%m%dT%H%M%S"),
         uid=uuid.uuid1(),
         name=lecture["name"],
         type=lecture["type"],
+        rdates="".join(["\nRDATE:{}".format(recursion.strftime("%Y%m%dT%H%M%S"))
+        for recursion in lecture["recursions"]
+        ]),
         location=lecture["location"],
         code=lecture["code"],
         week_count=len(lecture["weeks"]),
@@ -231,7 +249,8 @@ END:VCALENDAR"""
     return calendar_string
 
 
-def main():
+def user_interface():
+
     url = "https://timetable.soton.ac.uk/Home/Semester/"
     print("This code is configured for the year starting: {}".format(MONDAY_OF_FIRST_WEEK))
     time.sleep(1)
@@ -285,6 +304,15 @@ def main():
     print("To import this into google calendar you just select the file from the import option in the settings menu.")
     print("Good Luck!")
     input("(Press Enter to close)")
+
+
+def test():
+    with open("My Timetable.html") as f:
+        lectures = scrape_page(f.read())
+    print(export_as_ical(lectures))
+
+def main():
+    user_interface()
 
 if __name__ == "__main__":
     main()
