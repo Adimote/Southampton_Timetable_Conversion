@@ -251,7 +251,7 @@ END:VCALENDAR"""
 
 def user_interface():
 
-    url = "https://timetable.soton.ac.uk/Home/Semester/"
+    url = "https://timetable.soton.ac.uk/Home/Semester/<semester_number>/ (1 or 2)"
     print("This code is configured for the year starting: {}".format(MONDAY_OF_FIRST_WEEK))
     time.sleep(1)
     print("")
