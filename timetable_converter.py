@@ -253,7 +253,6 @@ def user_interface():
 
     url = "https://timetable.soton.ac.uk/Home/Semester/<semester_number>/ (1 or 2)"
     print("This code is configured for the year starting: {}".format(MONDAY_OF_FIRST_WEEK))
-    time.sleep(1)
     print("")
     a = input("...is it the right year? (yes/no) ")
     if a.strip().lower() != "yes":
@@ -262,7 +261,6 @@ def user_interface():
     print("")
     print("...good.")
     print("")
-    time.sleep(0.2)
     print("Now then:")
     while True:
         print("")
@@ -279,18 +277,14 @@ def user_interface():
             break
         else:
             print("...")
-            time.sleep(0.5)
             print("...I can't find the file!")
             print("")
-            time.sleep(1)
             print("Lets try again")
             print("")
-            time.sleep(0.5)
             print(
                 "Remember to save it in the same " +
                 "directory as this python script!"
                 )
-            time.sleep(0.5)
 
     with open("My Timetable.html") as f:
         lectures = scrape_page(f.read())
