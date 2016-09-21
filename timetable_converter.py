@@ -14,7 +14,7 @@ except NameError:
     pass
 
 
-MONDAY_OF_FIRST_WEEK = "2015/09/28"  # YYYY/MM/DD
+MONDAY_OF_FIRST_WEEK = "2016/10/03"  # YYYY/MM/DD
 
 
 VERSION = 0.2
