@@ -16,6 +16,11 @@ except NameError:
 
 MONDAY_OF_FIRST_WEEK = "2016/10/03"  # YYYY/MM/DD
 
+# Customise what the calendar entries look like.
+
+TITLE_FORMAT = "{name} ({code})"
+LOCATION_FORMAT = "{location}"
+DESCRIPTION_FORMAT = "{code}"
 
 VERSION = 0.2
 
@@ -219,17 +224,17 @@ RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU
 END:STANDARD
 END:VTIMEZONE""".format(version=VERSION)
     for lecture in lectures:
-        calendar_string += """
+        calendar_string += ("""
 BEGIN:VEVENT
 DTSTART;TZID=Europe/London:{start_time}
 DTEND;TZID=Europe/London:{end_time}{rdates}
 UID:{uid}
-DESCRIPTION:{name} ({type})
-LOCATION: {location}
-SUMMARY:{code}
+DESCRIPTION:"""+DESCRIPTION_FORMAT+"""
+LOCATION:"""+LOCATION_FORMAT+"""
+SUMMARY:"""+TITLE_FORMAT+"""
 TRANSP:OPAQUE
 END:VEVENT
-""".format(
+""").format(
         start_time=lecture["start_time"].strftime("%Y%m%dT%H%M%S"),
         end_time=lecture["end_time"].strftime("%Y%m%dT%H%M%S"),
         uid=uuid.uuid1(),
@@ -254,8 +259,8 @@ def user_interface():
     url = "https://timetable.soton.ac.uk/Home/Semester/<semester_number>/ (1 or 2)"
     print("This code is configured for the year starting: {}".format(MONDAY_OF_FIRST_WEEK))
     print("")
-    a = input("...is it the right year? (yes/no) ")
-    if a.strip().lower() != "yes":
+    a = input("...is it the right year? (Yes/no) ")
+    if a.strip().lower() not in ("Yes","Y","yes","yee",""):
         print("Go into the code and change the date to the FIRST monday of lectures!!")
         return input("(Press Enter to close)")
     print("")
