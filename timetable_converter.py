@@ -14,7 +14,7 @@ except NameError:
     pass
 
 
-MONDAY_OF_FIRST_WEEK = "2016/10/03"  # YYYY/MM/DD
+MONDAY_OF_FIRST_WEEK = "2017/10/02"  # YYYY/MM/DD
 
 # Customise what the calendar entries look like.
 
@@ -243,7 +243,7 @@ END:VEVENT
         rdates="".join(["\nRDATE:{}".format(recursion.strftime("%Y%m%dT%H%M%S"))
         for recursion in lecture["recursions"]
         ]),
-        location=lecture["location"],
+        location=lecture["location"].replace("\n", ""),
         code=lecture["code"],
         week_count=len(lecture["weeks"]),
         weeks=",".join([str(x) for x in lecture["weeks"]]),
