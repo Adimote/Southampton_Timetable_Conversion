@@ -74,6 +74,8 @@ def get_term_weeks_from_string(week_string):
             weeks.append(individual_week)
     return weeks
 
+def clean(dirty_string):
+    return dirty_string.strip()
 
 def scrape_page(page_string):
     page = etree.HTML(page_string)
@@ -81,18 +83,12 @@ def scrape_page(page_string):
     lectures = []
     for row in table:
         lecture = {}
-        lecture["code"] = row[0][0].text.strip()
-        lecture["name"] = row[1].text.strip()
+        lecture["code"] = clean(row[0][0].text)
+        lecture["name"] = clean(row[1].text)
         # for some reason the lecture string has a unicode character on the end
         # We're clearing it here.
-        lecture["type"] = unicodedata.normalize(
-                'NFKD',
-                row[2].text.strip()
-            ).encode(
-                'ascii',
-                'ignore'
-            ).decode('UTF-8')
-        term_weeks = get_term_weeks_from_string(row[6].text.strip())
+        lecture["type"] = clean(row[2].text)
+        term_weeks = get_term_weeks_from_string(clean(row[6].text))
 
         # if there aren't any weeks, stop.
         if not term_weeks:
@@ -106,10 +102,10 @@ def scrape_page(page_string):
 
 
         # get the weekday name
-        day_string = row[3].text.strip()
+        day_string = clean(row[3].text)
         # get the start and end times in HH:MM and convert them to datetime
-        start_time_hhmm = row[4].text.strip()
-        end_time_hhmm = row[5].text.strip()
+        start_time_hhmm = clean(row[4].text)
+        end_time_hhmm = clean(row[5].text)
 
         # Get a tuple of the start and end datetimes of the first lecture.
         start_and_end_datetime = get_datetime_of_lecture(
@@ -125,7 +121,7 @@ def scrape_page(page_string):
         lecture["recursions"] = recursions
         lecture["weeks"] = weeks
         lecture["week_times"] = weeks
-        lecture["location"] = row[7].text.strip()
+        lecture["location"] = row[7].text.encode('utf-8').strip()
 
         lectures.append(lecture)
 
@@ -243,7 +239,7 @@ END:VEVENT
         rdates="".join(["\nRDATE:{}".format(recursion.strftime("%Y%m%dT%H%M%S"))
         for recursion in lecture["recursions"]
         ]),
-        location=lecture["location"].replace("\n", ""),
+        location=lecture["location"].replace(b"\n", b""),
         code=lecture["code"],
         week_count=len(lecture["weeks"]),
         weeks=",".join([str(x) for x in lecture["weeks"]]),
