@@ -4,6 +4,7 @@ import unicodedata
 import uuid
 import time
 import os
+import urllib.request
 
 from datetime import datetime, timedelta
 
@@ -13,8 +14,23 @@ try:
 except NameError:
     pass
 
+def get_first_monday(academic_year):
+    response = urllib.request.urlopen("http://data.southampton.ac.uk/academic-session/{}.ttl".format(academic_year))
+    found_semester = False
+    for line in response:
+        line = line.decode('utf-8')
+        if not found_semester:
+            found_semester = "http://id.southampton.ac.uk/academic-session/2017-2018" in line
+        else:
+            if "beginsAtDateTime" in line:
+                begin_datestr = line.split('"')[1]
+                begin_datetime = datetime.strptime(begin_datestr, "%Y-%m-%dT%H:%M:%SZ")
+                begin_datetime = datetime(begin_datetime.year, begin_datetime.month, begin_datetime.day)
+                break
+    monday_datetime = begin_datetime + timedelta(days=1-begin_datetime.weekday(), weeks=1)
+    return monday_datetime
 
-MONDAY_OF_FIRST_WEEK = "2017/10/02"  # YYYY/MM/DD
+
 
 # Customise what the calendar entries look like.
 
@@ -22,13 +38,7 @@ TITLE_FORMAT = "{name} ({code})"
 LOCATION_FORMAT = "{location}"
 DESCRIPTION_FORMAT = "{code}"
 
-VERSION = 0.2
-
-# convert it to datetime
-MONDAY_OF_FIRST_WEEK_DATETIME = datetime.strptime(
-        MONDAY_OF_FIRST_WEEK,
-        "%Y/%m/%d"
-    )
+VERSION = 0.3
 
 # Day -> Int Dictionary
 DAY_OFFSETS = {
@@ -77,7 +87,7 @@ def get_term_weeks_from_string(week_string):
 def clean(dirty_string):
     return dirty_string.strip()
 
-def scrape_page(page_string):
+def scrape_page(page_string, monday_of_first_week):
     page = etree.HTML(page_string)
     table = page.xpath("//*[@id=\"calendarTable\"]/table/tbody")[0]
     lectures = []
@@ -97,7 +107,7 @@ def scrape_page(page_string):
         # get the weeks in ISO week form
         weeks = get_ISO_weeks(
                 term_weeks,
-                MONDAY_OF_FIRST_WEEK_DATETIME
+                monday_of_first_week
             )
 
 
@@ -112,7 +122,8 @@ def scrape_page(page_string):
             start_time_hhmm,
             end_time_hhmm,
             day_string,
-            term_weeks[0]
+            term_weeks[0],
+            monday_of_first_week,
             )
         recursions = [start_and_end_datetime[0] + timedelta(weeks=week-term_weeks[0]) for week in term_weeks]
         lecture["day"] = day_string
@@ -174,14 +185,15 @@ def get_datetime_of_lecture(
     start_time_string,
     end_time_string,
     day_string,
-    first_week_number
+    first_week_number,
+    monday_of_first_week
   ):
     """
     returns UTC datetime of the start and end times.
     """
     day_delta = get_day_offset(day_string)
     week_delta = get_week_offset(first_week_number)
-    day_date = MONDAY_OF_FIRST_WEEK_DATETIME + week_delta + day_delta
+    day_date = monday_of_first_week + week_delta + day_delta
     start_hour_delta = get_time_offset(start_time_string)
     end_hour_delta = get_time_offset(end_time_string)
     start_time = day_date+start_hour_delta
@@ -189,7 +201,6 @@ def get_datetime_of_lecture(
 
     return (start_time, end_time)
 
-# TODO: maybe make monday_of_first_week non-global
 # TODO(Bonus) link rooms to opendata by adding \
 #   ALTREF:http://data.southampton.ac.uk/room/<building-room>.html to the description
 
@@ -251,18 +262,22 @@ END:VCALENDAR"""
 
 
 def user_interface():
+    def format_years(start):
+        return "{}-{}".format(start,start+1)
+    guess_academic_year = format_years(datetime.now().year)
+
+    print("Which academic year are you adding for?")
+    academic_year = input("default: [{}] : ".format(guess_academic_year))
+    if not academic_year:
+        academic_year = guess_academic_year
+
+    first_monday = get_first_monday(academic_year)
+
+    assert len(academic_year) == 9 and '-' in academic_year, "Academic year must be in the form 20XX-20XX"
 
     url = "https://timetable.soton.ac.uk/Home/Semester/<semester_number>/ (1 or 2)"
-    print("This code is configured for the year starting: {}".format(MONDAY_OF_FIRST_WEEK))
     print("")
-    a = input("...is it the right year? (Yes/no) ")
-    if a.strip().lower() not in ("Yes","Y","yes","yee",""):
-        print("Go into the code and change the date to the FIRST monday of lectures!!")
-        return input("(Press Enter to close)")
-    print("")
-    print("...good.")
-    print("")
-    print("Now then:")
+    print("Lets begin:")
     while True:
         print("")
         print("----")
